@@ -1,0 +1,22 @@
+{
+  "name": "loomdeployerbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@solana/spl-token": "^0.3.9",
+    "@solana/spl-token-metadata": "^0.1.2",
+    "@solana/web3.js": "^1.87.6",
+    "dotenv": "^16.3.1",
+    "mongoose": "^8.0.3",
+    "node-fetch": "^3.3.2",
+    "node-telegram-bot-api": "^0.64.0",
+    "telegraf": "^4.15.3"
+  }
+}
