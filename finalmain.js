@@ -1,4 +1,7 @@
-const { Connection, PublicKey, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
+const { config } = require('dotenv');
+config();
+
+const { Connection, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
 const {
   TOKEN_PROGRAM_ID,
   MINT_SIZE,
@@ -8,20 +11,21 @@ const {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
 } = require('@solana/spl-token');
+const {
+  createMintToInstruction,
+} = require('@solana/spl-token');
 
 // Replace with your actual connection endpoint
 const connection = new Connection('https://api.devnet.solana.com');
 
-// Test private key
-const privateKeyBytes = [
-  220,149,4,36,211,173,52,153,6,139,214,165,14,59,238,41,8,51,144,79,250,180,188,240,66,153,244,57,211,59,16,255,81,127,132,155,179,112,161,8,14,218,193,131,228,94,105,130,90,73,7,225,207,150,21,235,122,88,252,62,23,133,5,80
-];
+// Load private key from environment variable
+const privateKeyBytes = process.env.PRIVATE_KEY.split(',').map(Number);
 
 // Wallet key pair
 const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
 
-// Function to create a token mint and associated token account
-async function createMintAndTokenAccount() {
+// Function to create a token mint and associated token account and mint tokens
+async function createMintAccountAndMintTokens() {
   try {
     const mint = Keypair.generate();
     const lamports = await getMinimumBalanceForRentExemptMint(connection);
@@ -35,7 +39,7 @@ async function createMintAndTokenAccount() {
     );
 
     const transaction = new Transaction();
-    
+
     // Add create mint instruction
     transaction.add(
       SystemProgram.createAccount({
@@ -60,6 +64,13 @@ async function createMintAndTokenAccount() {
         mint.publicKey,
         TOKEN_PROGRAM_ID,
         ASSOCIATED_TOKEN_PROGRAM_ID
+      ),
+      // Add mint tokens instruction
+      createMintToInstruction(
+        mint.publicKey,
+        associatedTokenAddress,
+        walletKeyPair.publicKey,
+        100000000000000 // Adjust this based on your token's decimal places
       )
     );
 
@@ -74,8 +85,9 @@ async function createMintAndTokenAccount() {
     console.log('Transaction Signature:', signature);
     console.log('Mint Public Key:', mint.publicKey.toBase58());
     console.log('Token Account Address:', associatedTokenAddress.toBase58());
+    console.log('Minting successful!');
   } catch (error) {
-    console.error('Error creating mint and token account:', error);
+    console.error('Error creating mint and token account and minting tokens:', error);
     throw error; // Propagate the error
   }
 }
@@ -83,7 +95,7 @@ async function createMintAndTokenAccount() {
 // Run the function
 (async () => {
   try {
-    await createMintAndTokenAccount();
+    await createMintAccountAndMintTokens();
   } catch (error) {
     console.error('Error:', error);
   }

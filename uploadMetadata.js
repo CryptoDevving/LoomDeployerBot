@@ -9,11 +9,11 @@ const arweave = Arweave.init({
 
 // Your Solana token metadata as a JSON object
 const solanaTokenMetadata = {
-  name: 'Hunter',
-  symbol: 'HUNTS',
-  description: 'Hunter Token is a meme token',
-  image: './logo.jpg',
+  name: "GUDS",
+  symbol: "GUDS",
   decimals: 9,
+  description: "A test token for GUDS",
+  image: "https://wos4qmv7zzcu343kkvwdugn6l7fqhb2vcjvibhhb4snfzqdpjq2a.arweave.net/s6XIMr_ORU3zalVsOhm-X8sDh1USaoCc4eSaXMBvTDQ?ext=png"
 };
 
 // Convert metadata to JSON string
