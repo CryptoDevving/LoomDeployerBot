@@ -39,7 +39,6 @@ async function createMintAccountAndMintTokens() {
     );
 
     const transaction = new Transaction();
-
     // Add create mint instruction
     transaction.add(
       SystemProgram.createAccount({
