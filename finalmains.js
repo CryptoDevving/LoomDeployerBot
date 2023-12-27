@@ -31,7 +31,8 @@ const privateKeyBytes = process.env.PRIVATE_KEY.split(",").map(Number);
 const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
 
 // Function to create a token mint and associated token account and mint tokens
-async function createMintAccountAndMintTokens() {
+async function main() {
+    try {
     const mint = Keypair.generate();
     const lamports = await getMinimumBalanceForRentExemptMint(connection);
 
@@ -89,15 +90,21 @@ async function createMintAccountAndMintTokens() {
     console.log("Transaction Signature:", signature);
     console.log("Mint Public Key:", mint.publicKey.toBase58());
     console.log("Token Account Address:", associatedTokenAddress.toBase58());
-    // Return the mint public key
-    return mint.publicKey.toBase58(); // Return the mint public key
-}
 
-createMintAccountAndMintTokens()
-  .then(mintPublicKey => {
+const mintPublicKey = mint.publicKey.toBase58();
+    console.log("Mint Value in accounts:", mintPublicKey);
+
+    // Export the mint public key
     module.exports = { mintPublicKey };
-  })
-  .catch(error => {
+
+    // Import metadata.js and call the metadata function
+    const { metadata } = require('./metadata');
+    metadata();
+  } catch (error) {
     console.error('Error creating mint and token account and minting tokens:', error);
     throw error;
-  });
+  }
+}
+
+// Call the async function immediately
+main();

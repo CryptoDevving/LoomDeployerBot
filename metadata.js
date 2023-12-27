@@ -1,6 +1,7 @@
-const { config } = require('dotenv');
-config();
+// metadata.js
 
+const { config } = require("dotenv");
+config();
 const {
     Collection,
     CreateMetadataAccountV3InstructionAccounts,
@@ -28,6 +29,9 @@ const {
     fromWeb3JsPublicKey,
   } = require('@metaplex-foundation/umi-web3js-adapters');
   
+//   // Import the mint public key from main.js
+//   const { mintPublicKey } = require('./finalmains');
+  
   function loadWalletKey(privateKeyBytes) {
     return web3.Keypair.fromSecretKey(new Uint8Array(privateKeyBytes));
   }
@@ -38,14 +42,15 @@ const {
     console.log("Let's name some tokens in 2024!");
   
     // Replace with your mint public key and metadata details
-    const mintPublicKey = "J1pxwYKLEja6JiEPZSdQRGibfpcBQd6MCZMyWZ9SSzNx";
+    // Now using the mint public key from main.js
     const metadataDetails = {
-      name: "GUDS",
+      name: "GUDS Coin",
       symbol: "GUDS",
-      uri: "https://wos4qmv7zzcu343kkvwdugn6l7fqhb2vcjvibhhb4snfzqdpjq2a.arweave.net/s6XIMr_ORU3zalVsOhm-X8sDh1USaoCc4eSaXMBvTDQ?ext=png",
+      uri: "https://raw.githubusercontent.com/CHToken/LoomDeployerBot/main/metadata.json",
     };
   
-    const mint = new web3.PublicKey(mintPublicKey);
+    const mint = new web3.PublicKey('GQ5K99fTZ37Gaz483eLHaR9KUp2M8zkcUPMMFHsZtzdw');
+    console.log("Mint Address", mint);
     const privateKeyBytes = process.env.PRIVATE_KEY.split(',').map(Number);
   
     const umi = createUmi("https://api.devnet.solana.com");
@@ -65,7 +70,7 @@ const {
   
     if (INITIALIZE) {
       const accounts = {
-        mint: fromWeb3JsPublicKey(mint),
+        mint: mint,
         mintAuthority: signer,
       };
       const data = {
@@ -74,7 +79,9 @@ const {
         data: onChainData,
       };
       const txid = await createMetadataAccountV3(umi, { ...accounts, ...data }).sendAndConfirm(umi);
-      console.log(txid);
+
+      const signature = (txid);
+      console.log("Signature", signature);
     } else {
       const data = {
         data: some(onChainData),
@@ -84,13 +91,12 @@ const {
         primarySaleHappened: none(),
       };
       const accounts = {
-        metadata: findMetadataPda(umi, { mint: fromWeb3JsPublicKey(mint) }),
+        metadata: findMetadataPda(umi, { mint: (mint) }),
         updateAuthority: signer,
       };
       const txid = await updateMetadataAccountV2(umi, { ...accounts, ...data }).sendAndConfirm(umi);
       console.log(txid);
     }
   }
-  
-  metadata();
-  
+
+  metadata() ;
