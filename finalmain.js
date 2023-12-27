@@ -1,3 +1,5 @@
+// main.js
+
 const { config } = require('dotenv');
 config();
 
@@ -84,17 +86,20 @@ async function createMintAccountAndMintTokens() {
     console.log('Transaction Signature:', signature);
     console.log('Mint Public Key:', mint.publicKey.toBase58());
     console.log('Token Account Address:', associatedTokenAddress.toBase58());
-    console.log('Minting successful!');
+
   } catch (error) {
     console.error('Error creating mint and token account and minting tokens:', error);
-    throw error; // Propagate the error
+    throw error;
   }
 }
 
 // Run the function
 (async () => {
   try {
+    // Wait for minting to complete and get the mint public key
     await createMintAccountAndMintTokens();
+
+    console.log('Minting successful!');
   } catch (error) {
     console.error('Error:', error);
   }
