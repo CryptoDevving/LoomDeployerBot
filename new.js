@@ -1,57 +1,110 @@
-const { Connection, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
-const { TOKEN_PROGRAM_ID, MINT_SIZE, getMinimumBalanceForRentExemptMint, createInitializeMintInstruction } = require('@solana/spl-token');
+const { config } = require("dotenv");
+config();
+const {
+  Collection,
+  CreateMetadataAccountV3InstructionAccounts,
+  CreateMetadataAccountV3InstructionDataArgs,
+  Creator,
+  MPL_TOKEN_METADATA_PROGRAM_ID,
+  UpdateMetadataAccountV2InstructionAccounts,
+  UpdateMetadataAccountV2InstructionData,
+  Uses,
+  createMetadataAccountV3,
+  updateMetadataAccountV2,
+  findMetadataPda,
+} = require("@metaplex-foundation/mpl-token-metadata");
+const web3 = require("@solana/web3.js");
+const {
+  PublicKey,
+  createSignerFromKeypair,
+  none,
+  signerIdentity,
+  some,
+} = require("@metaplex-foundation/umi");
+const { createUmi } = require("@metaplex-foundation/umi-bundle-defaults");
+const {
+  fromWeb3JsKeypair,
+  fromWeb3JsPublicKey,
+} = require("@metaplex-foundation/umi-web3js-adapters");
 
-// Replace with your actual connection endpoint
-const connection = new Connection('https://api.devnet.solana.com');
+function loadWalletKey(privateKeyBytes) {
+  return web3.Keypair.fromSecretKey(new Uint8Array(privateKeyBytes));
+}
 
-// Test private key
-const privateKeyBytes = [
-  220,149,4,36,211,173,52,153,6,139,214,165,14,59,238,41,8,51,144,79,250,180,188,240,66,153,244,57,211,59,16,255,81,127,132,155,179,112,161,8,14,218,193,131,228,94,105,130,90,73,7,225,207,150,21,235,122,88,252,62,23,133,5,80
-];
+const INITIALIZE = true;
 
-// Wallet key pair
-const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
-
-// Function to create a token mint
-async function createMint() {
+// Modify the function to accept mint public key and mint as arguments
+async function metadata(mintAddress, mintPublicKey) {
   try {
-    const mint = Keypair.generate();
+    console.log("Let's name some tokens in 2024!");
 
-    const lamports = await getMinimumBalanceForRentExemptMint(connection);
+    // Replace with your mint public key and metadata details
+    // Now using the mint public key from main.js
+    const metadataDetails = {
+      name: "GUDS Coin",
+      symbol: "GUDS",
+      uri: "https://raw.githubusercontent.com/CHToken/LoomDeployerBot/main/metadata.json",
+    };
 
-    const transaction = new Transaction();
+    console.log("Mint Address", mintAddress);
 
-    transaction.add(
-      SystemProgram.createAccount({
-        fromPubkey: walletKeyPair.publicKey,
-        newAccountPubkey: mint.publicKey,
-        space: MINT_SIZE,
-        lamports,
-        programId: TOKEN_PROGRAM_ID,
-      }),
-      createInitializeMintInstruction(
-        mint.publicKey,
-        0,
-        walletKeyPair.publicKey,
-        walletKeyPair.publicKey,
-        TOKEN_PROGRAM_ID
-      )
+    const privateKeyBytes = process.env.PRIVATE_KEY.split(",").map(Number);
+
+    const umi = createUmi("https://api.devnet.solana.com");
+    const signer = createSignerFromKeypair(
+      umi,
+      fromWeb3JsKeypair(loadWalletKey(privateKeyBytes))
     );
+    umi.use(signerIdentity(signer, true));
 
-    // Sign and send the transaction
-    const signature = await sendAndConfirmTransaction(
-      connection,
-      transaction,
-      [walletKeyPair, mint],
-      { commitment: 'singleGossip', preflightCommitment: 'singleGossip' }
-    );
+    const onChainData = {
+      ...metadataDetails,
+      sellerFeeBasisPoints: 0,
+      creators: none(),
+      collection: none(),
+      uses: none(),
+    };
 
-    console.log('Transaction Signature:', signature);
-    console.log('Mint Public Key:', mint.publicKey.toBase58());
+    if (INITIALIZE) {
+      const accounts = {
+        mint: mintAddress,
+        mintAuthority: signer,
+      };
+      const data = {
+        isMutable: true,
+        collectionDetails: null,
+        data: onChainData,
+      };
+      const txid = await createMetadataAccountV3(umi, {
+        ...accounts,
+        ...data,
+      }).sendAndConfirm(umi);
+
+      const signature = txid;
+      console.log("Signature", signature);
+    } else {
+      const data = {
+        data: some(onChainData),
+        discriminator: 0,
+        isMutable: some(true),
+        newUpdateAuthority: none(),
+        primarySaleHappened: none(),
+      };
+      const accounts = {
+        metadata: findMetadataPda(umi, { mint: mintAddress }),
+        updateAuthority: signer,
+      };
+      const txid = await updateMetadataAccountV2(umi, {
+        ...accounts,
+        ...data,
+      }).sendAndConfirm(umi);
+      console.log(txid);
+    }
   } catch (error) {
-    console.error('Error creating mint:', error);
+    console.error("Error during metadata creation:", error);
+    throw error;
   }
 }
 
-// Run the function to create a new Mint
-createMint();
+// Export the metadata function to be used in main.js
+module.exports = { metadata };

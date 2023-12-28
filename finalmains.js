@@ -1,5 +1,4 @@
 // main.js
-
 const { config } = require("dotenv");
 config();
 
@@ -18,10 +17,15 @@ const {
   createInitializeMintInstruction,
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
+  createMintToInstruction,
 } = require("@solana/spl-token");
-const { createMintToInstruction } = require("@solana/spl-token");
 
-// Replace with your actual connection endpoint
+// Import metadata function from metadata.js
+const { metadata } = require("./new");
+
+let mint;
+
+// connection endpoint
 const connection = new Connection("https://api.devnet.solana.com");
 
 // Load private key from environment variable
@@ -31,9 +35,10 @@ const privateKeyBytes = process.env.PRIVATE_KEY.split(",").map(Number);
 const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
 
 // Function to create a token mint and associated token account and mint tokens
-async function main() {
-    try {
-    const mint = Keypair.generate();
+async function createMintAccountAndMintTokens() {
+  try {
+    console.log("Let's mint some tokens!");
+    mint = Keypair.generate();
     const lamports = await getMinimumBalanceForRentExemptMint(connection);
 
     const associatedTokenAddress = await getAssociatedTokenAddress(
@@ -79,7 +84,6 @@ async function main() {
       )
     );
 
-    // Sign and send the transaction
     const signature = await sendAndConfirmTransaction(
       connection,
       transaction,
@@ -91,20 +95,27 @@ async function main() {
     console.log("Mint Public Key:", mint.publicKey.toBase58());
     console.log("Token Account Address:", associatedTokenAddress.toBase58());
 
-const mintPublicKey = mint.publicKey.toBase58();
-    console.log("Mint Value in accounts:", mintPublicKey);
-
-    // Export the mint public key
-    module.exports = { mintPublicKey };
-
-    // Import metadata.js and call the metadata function
-    const { metadata } = require('./metadata');
-    metadata();
+    // Export the mint address
+    return mint.publicKey.toBase58();
   } catch (error) {
-    console.error('Error creating mint and token account and minting tokens:', error);
+    console.error("Error during minting:", error);
     throw error;
   }
 }
 
-// Call the async function immediately
-main();
+// Call createMintAccountAndMintTokens and get the mint address
+createMintAccountAndMintTokens()
+  .then((mintAddress) => {
+    // Set mint variable
+    mint = mintAddress;
+
+    // Call metadata function from metadata.js after minting
+    return metadata(mint, mintAddress);
+  })
+  .catch((error) => {
+    console.error(
+      "Error creating mint and token account and minting tokens:",
+      error
+    );
+    throw error;
+  });

@@ -18,10 +18,10 @@ const {
   createInitializeMintInstruction,
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
+  createMintToInstruction,
 } = require("@solana/spl-token");
-const { createMintToInstruction } = require("@solana/spl-token");
 
-// Replace with your actual connection endpoint
+// connection endpoint
 const connection = new Connection("https://api.devnet.solana.com");
 
 // Load private key from environment variable
@@ -89,14 +89,9 @@ async function createMintAccountAndMintTokens() {
     console.log("Transaction Signature:", signature);
     console.log("Mint Public Key:", mint.publicKey.toBase58());
     console.log("Token Account Address:", associatedTokenAddress.toBase58());
-    // Return the mint public key
-    return mint.publicKey.toBase58(); // Return the mint public key
 }
 
 createMintAccountAndMintTokens()
-  .then(mintPublicKey => {
-    module.exports = { mintPublicKey };
-  })
   .catch(error => {
     console.error('Error creating mint and token account and minting tokens:', error);
     throw error;
