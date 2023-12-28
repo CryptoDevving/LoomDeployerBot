@@ -31,7 +31,6 @@ bot.onText(/\/start/, async (msg) => {
   const existingUser = await User.findOne({ chatId });
 
   if (existingUser) {
-    // User already has a wallet
     bot.sendMessage(
       chatId,
       "You already have a wallet. Use /deploy to create and deploy tokens."
