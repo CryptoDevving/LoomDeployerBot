@@ -29,9 +29,6 @@ const {
     fromWeb3JsPublicKey,
   } = require('@metaplex-foundation/umi-web3js-adapters');
   
-//   // Import the mint public key from main.js
-//   const { mintPublicKey } = require('./finalmains');
-  
   function loadWalletKey(privateKeyBytes) {
     return web3.Keypair.fromSecretKey(new Uint8Array(privateKeyBytes));
   }
