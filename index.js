@@ -1,5 +1,5 @@
 const { config } = require("dotenv");
 config();
 
-// Import and run your bot file
+// Import and run bot file
 require("./src/bot");
