@@ -79,6 +79,14 @@ const {
     // 🔐*Token Account Address:* [${associatedTokenAddress.toBase58()}](${tokenExplorerUrl})
     
     bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+
+    // Prompt user to upload Token metadata
+    const uploadMetadataMessage = `
+    📢 *Token Metadata Upload*:
+    To complete the transaction, please upload your Token metadata instantly using the /addMetadata command.
+    `;
+
+    bot.sendMessage(chatId, uploadMetadataMessage, { parse_mode: "Markdown" });
     
     // Save token transaction info to the database
     const tokenTransaction = new TokenTransaction({

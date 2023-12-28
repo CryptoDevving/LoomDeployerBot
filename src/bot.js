@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const { Connection, Keypair } = require("@solana/web3.js");
 const { createMintAccountAndMintTokens } = require("./deploy");
+const { addMetadata } = require("./addMetadata");
 const TelegramBot = require("node-telegram-bot-api");
 
 // Connect to MongoDB
@@ -111,4 +112,43 @@ bot.onText(/\/deploy/, async (msg) => {
       }
     });
   });
+});
+
+
+// Handle /addMetadata command
+bot.onText(/\/addMetadata/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  // Check if the user's wallet exists in the database
+  const user = await User.findOne({ chatId });
+
+  if (!user) {
+    bot.sendMessage(
+    chatId,
+    "User not found in the database. Please use /start to create a new wallet."
+    );
+    return;
+  }
+
+  // Send a message with the "Continue" button
+  bot.sendMessage(chatId, "Click Continue to start submitting your metadata details:", {
+    reply_markup: {
+      inline_keyboard: [[{ text: "Continue", callback_data: "continue" }]],
+    },
+  });
+});
+
+// Handle inline button callback
+bot.on("callback_query", async (query) => {
+  const chatId = query.message.chat.id;
+  const data = query.data;
+
+  if (data === "continue") {
+    try {
+      await addMetadata(chatId, bot);
+    } catch (error) {
+      console.error("Error adding metadata:", error);
+      bot.sendMessage(chatId, "Error adding metadata");
+    }
+  }
 });
