@@ -4,110 +4,167 @@ const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
+const FileMetadata = require("./models/metadata");
+
 
 // Function to upload a file to Pinata
 const uploadFileToPinata = async (filePath, options) => {
-  try {
-    const originalFileName = path.basename(filePath);
-    const data = new FormData();
-    const fileStream = fs.createReadStream(filePath);
-    const numberedFileName = `${Date.now()}_${originalFileName}`;
-
-    data.append("file", fileStream, { filename: numberedFileName });
-    data.append("pinataOptions", JSON.stringify(options));
-
-    const res = await axios.post(
-      "https://api.pinata.cloud/pinning/pinFileToIPFS",
-      data,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.PINATA_JWT}`,
-          ...data.getHeaders(),
-        },
-      }
-    );
+    try {
+      const originalFileName = path.basename(filePath);
+      const data = new FormData();
+      const fileStream = fs.createReadStream(filePath);
+      const numberedFileName = `${Date.now()}_${originalFileName}`;
+  
+      data.append("file", fileStream, { filename: numberedFileName });
+      data.append("pinataOptions", JSON.stringify(options));
+  
+      const res = await axios.post(
+        "https://api.pinata.cloud/pinning/pinFileToIPFS",
+        data,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PINATA_JWT}`,
+            ...data.getHeaders(),
+          },
+        }
+      );
 
     console.log(res.data);
     console.log(
       `View the file here: https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}/${numberedFileName}`
     );
-
-    return { res, numberedFileName };
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-};
+  
+      return { res, numberedFileName };
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  };
 
 // Function to save metadata to a file
 const saveMetadataToFile = (metadata, numberedFileName, directoryPath) => {
-  try {
-    const metadataFileName = `${path.parse(numberedFileName).name}.json`;
-    const metadataFilePath = path.join(directoryPath, metadataFileName);
-    fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 2));
-    return metadataFilePath;
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-};
-
-// Function to pin file to IPFS after uploading
-const pinFileToIPFS = async (filePath, chatId, bot) => {
-  try {
-    const { res, numberedFileName } = await uploadFileToPinata(filePath, {
-      cidVersion: 0,
-      wrapWithDirectory: true,
-    });
-
-    const metadata = {
-      name: "GUDS Coin",
-      symbol: "GUDS",
-      description: "Just a test for solana",
-      image: `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}/${numberedFileName}`,
-    };
-
-    const directoryPath = "./src/Metadata";
-
-    const metadataFilePath = saveMetadataToFile(
-      metadata,
-      numberedFileName,
-      directoryPath
-    );
-
-    if (metadataFilePath) {
-      const metadataFormData = new FormData();
-      const metadataStream = fs.createReadStream(metadataFilePath);
-      metadataFormData.append("file", metadataStream, {
-        filename: path.basename(metadataFilePath),
-      });
-      metadataFormData.append(
-        "pinataOptions",
-        '{"cidVersion": 0, "wrapWithDirectory": true}'
-      );
-
-      const metadataRes = await axios.post(
-        "https://api.pinata.cloud/pinning/pinFileToIPFS",
-        metadataFormData,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.PINATA_JWT}`,
-            ...metadataFormData.getHeaders(),
-          },
-        }
-      );
-
-      console.log(metadataRes.data);
-      console.log(
-        `Metadata uploaded to: https://gateway.pinata.cloud/ipfs/${
-          metadataRes.data.IpfsHash
-        }/${path.basename(metadataFilePath)}`
-      );
+    try {
+      const metadataFileName = `${path.parse(numberedFileName).name}.json`;
+      const metadataFilePath = path.join(directoryPath, metadataFileName);
+      fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 2));
+      return metadataFilePath;
+    } catch (error) {
+      console.error(error);
+      return null;
     }
-  } catch (error) {
-    console.error(error);
-  }
-};
+  };
+
+// Function to save metadata to the database
+const saveMetadataToDatabase = async (metadata) => {
+    try {
+      // Create a new FileMetadata instance and save it to the database
+      const fileMetadata = new FileMetadata(metadata);
+      await fileMetadata.save();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+// Function to prompt user for metadata details using Telegram bot
+const promptForMetadata = async (chatId, bot) => {
+    try {
+      // Ask the user for metadata details
+      bot.sendMessage(chatId, "Enter Token Name:");
+      const name = await waitForUserResponse(chatId, bot);
+  
+      bot.sendMessage(chatId, "Enter Token Symbol:");
+      const symbol = await waitForUserResponse(chatId, bot);
+  
+      bot.sendMessage(chatId, "Enter Description:");
+      const description = await waitForUserResponse(chatId, bot);
+  
+      return { name, symbol, description };
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  };
+  
+  // Function to wait for user response
+const waitForUserResponse = (chatId, bot) => {
+    return new Promise((resolve) => {
+      bot.once("message", (msg) => {
+        resolve(msg.text);
+      });
+    });
+  };
+  
+  // Function to pin file to IPFS after uploading
+  const pinFileToIPFS = async (filePath, chatId, bot) => {
+    try {
+       
+      // Prompt the user for metadata details on Telegram
+      const metadata = await promptForMetadata(chatId, bot);
+  
+      // Continue only if metadata is received
+      if (!metadata || !metadata.name || !metadata.symbol || !metadata.description) {
+        bot.sendMessage(chatId, "Invalid metadata. Please try again.");
+        return;
+      }
+
+       // Notify the user that metadata is processing
+        bot.sendMessage(chatId, "Processing metadata. Please wait...");
+  
+      const { res, numberedFileName } = await uploadFileToPinata(filePath, {
+        cidVersion: 0,
+        wrapWithDirectory: true,
+      });
+  
+      metadata.image = `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}/${numberedFileName}`;
+  
+      const directoryPath = "./src/Metadata";
+  
+      const metadataFilePath = saveMetadataToFile(
+        metadata,
+        numberedFileName,
+        directoryPath
+      );
+  
+      if (metadataFilePath) {
+        const metadataFormData = new FormData();
+        const metadataStream = fs.createReadStream(metadataFilePath);
+        metadataFormData.append("file", metadataStream, {
+          filename: path.basename(metadataFilePath),
+        });
+        metadataFormData.append(
+          "pinataOptions",
+          '{"cidVersion": 0, "wrapWithDirectory": true}'
+        );
+  
+        const metadataRes = await axios.post(
+          "https://api.pinata.cloud/pinning/pinFileToIPFS",
+          metadataFormData,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.PINATA_JWT}`,
+              ...metadataFormData.getHeaders(),
+            },
+          }
+        );
+  
+        console.log(
+          `User ${chatId} Successfully Uploaded a new file!!! ✅`
+        );
+  
+        // Save metadata to the database
+        await saveMetadataToDatabase(metadata);
+  
+        // Send success message to the user
+        bot.sendMessage(chatId, "Metadata uploaded successfully!!! ✅" + "\n\n" +
+          `View the file here: https://gateway.pinata.cloud/ipfs/${
+            metadataRes.data.IpfsHash
+          }/${path.basename(metadataFilePath)}`
+        );
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
 // Function to handle the file upload through Telegram
 const handleTelegramFileUpload = async (chatId, bot) => {
@@ -115,7 +172,7 @@ const handleTelegramFileUpload = async (chatId, bot) => {
     // Prompt the user to upload a document
     bot.sendMessage(
       chatId,
-      "Please upload your image file(Do not Compress)\n\nSupported formats: jpg, jpeg, png\n\nDo not upload the file as a picture"
+      "Please upload your image file (Do not Compress)\n\nSupported formats: jpg, jpeg, png\n\nDo not upload the file as a picture"
     );
 
     // Wait for the user to upload the file
