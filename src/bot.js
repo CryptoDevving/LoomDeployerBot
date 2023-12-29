@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const { Connection, Keypair } = require("@solana/web3.js");
 const { createMintAccountAndMintTokens } = require("./deploy");
-const { addMetadata } = require("./addMetadata");
+const { handleTelegramFileUpload } = require("../newmetadata");
 const TelegramBot = require("node-telegram-bot-api");
 
 // Connect to MongoDB
@@ -116,7 +116,7 @@ bot.onText(/\/deploy/, async (msg) => {
 
 
 // Handle /addMetadata command
-bot.onText(/\/addMetadata/, async (msg) => {
+bot.onText(/\/addmetadata/, async (msg) => {
   const chatId = msg.chat.id;
 
   // Check if the user's wallet exists in the database
@@ -145,7 +145,7 @@ bot.on("callback_query", async (query) => {
 
   if (data === "continue") {
     try {
-      await addMetadata(chatId, bot);
+      await handleTelegramFileUpload(chatId, bot);
     } catch (error) {
       console.error("Error adding metadata:", error);
       bot.sendMessage(chatId, "Error adding metadata");
