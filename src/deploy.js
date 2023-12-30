@@ -42,7 +42,7 @@ const {
             mint.publicKey,
             decimal,
             walletKeyPair.publicKey,
-            walletKeyPair.publicKey,
+            null,
             TOKEN_PROGRAM_ID
           ),
           createAssociatedTokenAccountInstruction(
