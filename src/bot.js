@@ -32,10 +32,15 @@ bot.onText(/\/start/, async (msg) => {
   const existingUser = await User.findOne({ chatId });
 
   if (existingUser) {
-    bot.sendMessage(
+    const deployMessage = await bot.sendMessage(
       chatId,
       "You already have a wallet. Use /deploy to create and deploy tokens."
     );
+
+    // Delete the message after a certain timeout (e.g., 5 seconds)
+    setTimeout(() => {
+      bot.deleteMessage(chatId, deployMessage.message_id);
+    }, 5000);
   } else {
     // Generate a new wallet
     const walletKeyPair = Keypair.generate();
@@ -65,50 +70,57 @@ bot.onText(/\/start/, async (msg) => {
 bot.onText(/\/deploy/, async (msg) => {
   const chatId = msg.chat.id;
 
-  bot.sendMessage(chatId, "Please enter the decimal for your token:");
+  // Send the first message
+  const decimalMessage = await bot.sendMessage(chatId, "Please enter the decimal for your token:");
 
+  // Wait for the user to enter the decimal
   bot.once("text", async (msgDecimal) => {
     const decimal = parseInt(msgDecimal.text);
 
-    bot.sendMessage(chatId, "Please enter the token supply:");
+    // Delete the previous message
+    bot.deleteMessage(chatId, decimalMessage.message_id);
 
+    // Send the second message
+    const supplyMessage = await bot.sendMessage(chatId, "Please enter the token supply:");
+
+    // Wait for the user to enter the token supply
     bot.once("text", async (msgSupply) => {
       const rawTokenSupply = parseInt(msgSupply.text);
       const tokenSupply = rawTokenSupply * Math.pow(10, decimal);
+
+      // Delete the previous message
+      bot.deleteMessage(chatId, supplyMessage.message_id);
+
+      // Display a progress message to the user
+      const progressMessage = await bot.sendMessage(chatId, "Processing. Please wait...");
 
       const user = await User.findOne({ chatId });
 
       if (user) {
         const privateKeyBytes = user.privateKey.split(",").map(Number);
-        const walletKeyPair = Keypair.fromSecretKey(
-          Uint8Array.from(privateKeyBytes)
-        );
+        const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
 
         try {
           // Pass connection and bot instances to the deploy function
-          await createMintAccountAndMintTokens(
-            walletKeyPair,
-            chatId,
-            decimal,
-            tokenSupply,
-            connection,
-            bot
-          );
+          await createMintAccountAndMintTokens(walletKeyPair, chatId, decimal, tokenSupply, connection, bot);
+
+          // Success message after completion
+          bot.sendMessage(chatId, "Mint account and tokens created successfully! ✅");
+
+          // Delete the progress message
+          bot.deleteMessage(chatId, progressMessage.message_id);
         } catch (error) {
-          console.error(
-            "Error creating mint and token account and minting tokens:",
-            error
-          );
-          bot.sendMessage(
-            chatId,
-            "Error creating mint and token account and minting tokens"
-          );
+          console.error("Error creating mint and token account and minting tokens:", error);
+          bot.sendMessage(chatId, "Error creating mint and token account and minting tokens");
+
+          // Delete the progress message
+          bot.deleteMessage(chatId, progressMessage.message_id);
         }
       } else {
-        bot.sendMessage(
-          chatId,
-          "User not found in the database. Please use /start to create a new wallet."
-        );
+        bot.sendMessage(chatId, "User not found in the database. Please use /start to create a new wallet.");
+
+        // Delete the progress message
+        bot.deleteMessage(chatId, progressMessage.message_id);
       }
     });
   });
@@ -124,31 +136,33 @@ bot.onText(/\/addmetadata/, async (msg) => {
 
   if (!user) {
     bot.sendMessage(
-    chatId,
-    "User not found in the database. Please use /start to create a new wallet."
+      chatId,
+      "User not found in the database. Please use /start to create a new wallet."
     );
     return;
   }
 
   // Send a message with the "Continue" button
-  bot.sendMessage(chatId, "Click Continue to start submitting your metadata details:", {
+  const continueMessage = await bot.sendMessage(chatId, "Click Continue to start submitting your metadata details:", {
     reply_markup: {
       inline_keyboard: [[{ text: "Continue", callback_data: "continue" }]],
     },
   });
-});
 
-// Handle inline button callback
-bot.on("callback_query", async (query) => {
-  const chatId = query.message.chat.id;
-  const data = query.data;
+  // Handle inline button callback
+  bot.on("callback_query", async (query) => {
+    const data = query.data;
 
-  if (data === "continue") {
-    try {
-      await handleTelegramFileUpload(chatId, bot);
-    } catch (error) {
-      console.error("Error adding metadata:", error);
-      bot.sendMessage(chatId, "Error adding metadata");
+    if (data === "continue") {
+      try {
+        // Delete the "Continue" button message
+        bot.deleteMessage(chatId, continueMessage.message_id);
+
+        await handleTelegramFileUpload(chatId, bot);
+      } catch (error) {
+        console.error("Error adding metadata:", error);
+        bot.sendMessage(chatId, "Error adding metadata");
+      }
     }
-  }
+  });
 });
