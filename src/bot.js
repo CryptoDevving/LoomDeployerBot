@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const { Connection, Keypair } = require("@solana/web3.js");
 const { createMintAccountAndMintTokens } = require("./deploy");
-const { handleTelegramFileUpload } = require("../newmetadata");
+const { handleTelegramFileUpload } = require("./handleTelegramFileUpload");
 const TelegramBot = require("node-telegram-bot-api");
 
 // Connect to MongoDB

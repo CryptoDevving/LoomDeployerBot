@@ -99,6 +99,11 @@ async function metadata(metadataInfo, chatId, bot) {
 
       const signature = txid;
       console.log("Signature", signature);
+      // Send success message to the user
+      bot.sendMessage(
+        chatId,
+        "Metadata uploaded successfully! ✅\n\nYou can now revoke the mint authority before adding liquidity."
+      );
     } else {
       const data = {
         data: some(onChainData),
@@ -116,6 +121,11 @@ async function metadata(metadataInfo, chatId, bot) {
         ...data,
       }).sendAndConfirm(umi);
       console.log(txid);
+      // Send success message to the user
+      bot.sendMessage(
+        chatId,
+        "Metadata updated successfully! ✅\n\nYou can now revoke the mint authority before adding liquidity."
+      );
     }
   } catch (error) {
     console.error(error);

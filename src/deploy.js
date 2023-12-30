@@ -68,13 +68,13 @@ const {
   
     const mintPublicKey = mint.publicKey.toBase58();
     const mintExplorerUrl = `https://explorer.solana.com/address/${mintPublicKey}?cluster=devnet`;
-    const transactionExplorerUrl = `https://explorer.solana.com/address/${signature}?cluster=devnet`;
+    // const transactionExplorerUrl = `https://explorer.solana.com/address/${signature}?cluster=devnet`;
   
     const message = `
   📃*Transaction Details*\n
-  ✍*Transaction Signature:* [${signature}](${transactionExplorerUrl})\n
-  🔑*Mint Public Key:* [${mintPublicKey}](${mintExplorerUrl})
-  `;
+  ✍*Transaction Link:* [${mintPublicKey}](${mintExplorerUrl})\n
+  🔑*Mint Public Key:* \`${mintPublicKey}\`
+`;
   
     // 🔐*Token Account Address:* [${associatedTokenAddress.toBase58()}](${tokenExplorerUrl})
     
@@ -83,7 +83,7 @@ const {
     // Prompt user to upload Token metadata
     const uploadMetadataMessage = `
     📢 *Token Metadata Upload*:
-    To complete the transaction, please upload your Token metadata instantly using the /addMetadata command.
+    To complete the transaction, please upload your Token metadata instantly using the /addmetadata command.
     `;
 
     bot.sendMessage(chatId, uploadMetadataMessage, { parse_mode: "Markdown" });
