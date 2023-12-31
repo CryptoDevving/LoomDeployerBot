@@ -66,7 +66,7 @@ async function revokeFreeze(chatId, mintAddress, bot) {
             walletKeyPair, // Payer
             mintAddress, // User-provided mint address
             walletKeyPair.publicKey, // Use the wallet's public key as the freeze authority key
-            AuthorityType.FreezeAccount,
+            AuthorityType.MintTokens,
             null // New authority (null to remove)
         );
 
