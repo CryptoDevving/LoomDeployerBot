@@ -2,18 +2,31 @@
 
 const { config } = require("dotenv");
 config();
-const { createMetadataAccountV3, updateMetadataAccountV2, findMetadataPda } = require("@metaplex-foundation/mpl-token-metadata");
+const {
+  createMetadataAccountV3,
+  updateMetadataAccountV2,
+  findMetadataPda,
+} = require("@metaplex-foundation/mpl-token-metadata");
 const web3 = require("@solana/web3.js");
-const { createSignerFromKeypair, none, signerIdentity, some } = require("@metaplex-foundation/umi");
+const {
+  createSignerFromKeypair,
+  none,
+  signerIdentity,
+  some,
+} = require("@metaplex-foundation/umi");
 const { createUmi } = require("@metaplex-foundation/umi-bundle-defaults");
-const { fromWeb3JsKeypair } = require("@metaplex-foundation/umi-web3js-adapters");
-const User = require('../models/User');
+const {
+  fromWeb3JsKeypair,
+} = require("@metaplex-foundation/umi-web3js-adapters");
+const bs58 = require('bs58');
+const User = require("../models/User");
 
 function loadWalletKey(privateKeyBytes) {
   return web3.Keypair.fromSecretKey(new Uint8Array(privateKeyBytes));
 }
 
 const INITIALIZE = true;
+const solanaExplorerUrl = "https://explorer.solana.com/tx/";
 
 // Function to wait for user response
 async function waitForUserResponse(chatId, bot) {
@@ -29,7 +42,10 @@ async function waitForUserResponse(chatId, bot) {
 async function promptForMintAddress(chatId, bot) {
   try {
     // Send the prompt message
-    const mintAddressMessage = await bot.sendMessage(chatId, "Enter the Mint Address:");
+    const mintAddressMessage = await bot.sendMessage(
+      chatId,
+      "Enter the Mint Address:"
+    );
     // Wait for the user to enter the Mint Address
     const mintAddress = await waitForUserResponse(chatId, bot);
     // Delete the prompt message
@@ -61,7 +77,10 @@ async function metadata(metadataInfo, chatId, bot) {
     const privateKeyBytes = user.privateKey.split(",").map(Number);
 
     // Display a progress message to the user
-    const progressMessage = await bot.sendMessage(chatId, "Processing. Please wait...");
+    const progressMessage = await bot.sendMessage(
+      chatId,
+      "Processing. Please wait..."
+    );
 
     const umi = createUmi("https://api.devnet.solana.com");
     const signer = createSignerFromKeypair(
@@ -93,12 +112,19 @@ async function metadata(metadataInfo, chatId, bot) {
         ...data,
       }).sendAndConfirm(umi);
 
-      const signature = txid;
-      console.log("Signature", signature);
+      /// Convert the signature byte array to a base58 string
+      const signatureBuffer = Buffer.from(txid.signature);
+      const signatureBase58 = bs58.encode(signatureBuffer);
+      const explorerLink = `${solanaExplorerUrl}${signatureBase58}?cluster=devnet`;
+
+      console.log(
+        `User ${chatId} has successfully added metadata to their Token ${mint}\n🔗View on Explorer: ${explorerLink}`
+      );
+
       // Send success message to the user
       bot.sendMessage(
         chatId,
-        "Metadata uploaded successfully! ✅\n\nYou can now revoke the mint authority before adding liquidity."
+        `Metadata uploaded successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command. \n\n🔗View on Explorer: ${explorerLink}`
       );
 
       // Delete the progress message
@@ -123,7 +149,7 @@ async function metadata(metadataInfo, chatId, bot) {
       // Send success message to the user
       bot.sendMessage(
         chatId,
-        "Metadata updated successfully! ✅\n\nYou can now revoke the mint authority before adding liquidity."
+        "Metadata updated successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command."
       );
 
       // Delete the progress message

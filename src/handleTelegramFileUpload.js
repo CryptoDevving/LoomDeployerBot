@@ -175,43 +175,87 @@ const saveMetadataToDatabase = async (metadataDetails) => {
 
 // Function to prompt user for metadata details using Telegram bot
 const promptForMetadata = async (chatId, bot) => {
+  let previewMessage;
+
   try {
     // Ask the user for metadata details
     const nameMessage = await bot.sendMessage(chatId, "Enter Token Name:");
-    const name = await waitForUserResponse(chatId, bot);
-
-    // Delete the name message
+    const name = await waitForTextInput(chatId, bot);
     bot.deleteMessage(chatId, nameMessage.message_id);
 
     const symbolMessage = await bot.sendMessage(chatId, "Enter Token Symbol:");
-    const symbol = await waitForUserResponse(chatId, bot);
-
-    // Delete the symbol message
+    const symbol = await waitForTextInput(chatId, bot);
     bot.deleteMessage(chatId, symbolMessage.message_id);
 
     const descriptionMessage = await bot.sendMessage(chatId, "Enter Description:");
-    const description = await waitForUserResponse(chatId, bot);
-
-    // Delete the description message
+    const description = await waitForTextInput(chatId, bot);
     bot.deleteMessage(chatId, descriptionMessage.message_id);
 
-    return { name, symbol, description };
+    // Show a preview of metadata details
+    previewMessage = await bot.sendMessage(
+      chatId,
+      `📖Preview\n\n🟢Token Name: ${name}\n🟢Symbol: ${symbol}\n📝Description: ${description}`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "Confirm", callback_data: "confirm" },
+              { text: "Edit", callback_data: "edit" },
+            ],
+          ],
+        },
+      }
+    );
+
+    // Log the metadata details
+    console.log("Preview message sent: ");
+    console.log(`Token Name: ${name}`);
+    console.log(`Token Symbol: ${symbol}`);
+    console.log(`Description: ${description}`);
+
+    // Wait for the user's response on the preview
+    const previewResponse = await waitForInlineButtonResponse(chatId, bot);
+
+    if (previewResponse === "confirm") {
+      return { name, symbol, description };
+    } else if (previewResponse === "edit") {
+      // If the user chooses to edit, recursively call the promptForMetadata function
+      return promptForMetadata(chatId, bot);
+    }
   } catch (error) {
     console.error(error);
     return null;
+  } finally {
+    // Delete the preview message after processing user's response
+    if (previewMessage) {
+      bot.deleteMessage(chatId, previewMessage.message_id);
+    }
   }
 };
 
-// Function to wait for user response
-async function waitForUserResponse(chatId, bot) {
-    return new Promise((resolve) => {
-      bot.once("message", (msg) => {
-        if (msg.chat.id.toString() === chatId.toString()) {
-          resolve(msg.text);
-        }
-      });
+// Function to wait for user response to text input
+async function waitForTextInput(chatId, bot) {
+  return new Promise((resolve) => {
+    bot.once("message", (msg) => {
+      if (msg.chat.id.toString() === chatId.toString()) {
+        resolve(msg.text);
+      }
     });
-  }
+  });
+}
+
+
+// Function to wait for user response to inline buttons
+async function waitForInlineButtonResponse(chatId, bot) {
+  return new Promise((resolve) => {
+    bot.once("callback_query", (query) => {
+      if (query.message.chat.id.toString() === chatId.toString()) {
+        resolve(query.data);
+      }
+    });
+  });
+}
+
 
 // Export the handleTelegramFileUpload function
 module.exports = { handleTelegramFileUpload };
