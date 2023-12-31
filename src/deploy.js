@@ -86,7 +86,7 @@ async function createMintAccountAndMintTokens(
       createInitializeMintInstruction(
         mint.publicKey,
         decimal,
-        walletKeyPair.publicKey,
+        null, // mint Authority 
         null, // freezeAuthority
         TOKEN_PROGRAM_ID
       ),
