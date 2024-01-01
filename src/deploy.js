@@ -14,6 +14,8 @@ const {
   createAssociatedTokenAccountInstruction,
   getAssociatedTokenAddress,
   createMintToInstruction,
+  setAuthority,
+  AuthorityType,
 } = require("@solana/spl-token");
 
 const TokenTransaction = require("../models/TokenTransaction");
@@ -64,6 +66,8 @@ async function createMintAccountAndMintTokens(
 
     // Rest of the code for minting tokens
     const mint = Keypair.generate();
+    const mintAuthorityKeyPair = Keypair.generate(); // Generate a key pair for mint authority
+
     const lamports = await getMinimumBalanceForRentExemptMint(connection);
 
     const associatedTokenAddress = await getAssociatedTokenAddress(
@@ -84,12 +88,12 @@ async function createMintAccountAndMintTokens(
         programId: TOKEN_PROGRAM_ID,
       }),
       createInitializeMintInstruction(
-        mint.publicKey,
-        decimal,
-        walletKeyPair.publicKey,
-        null, // freezeAuthority
-        TOKEN_PROGRAM_ID
-      ),
+  mint.publicKey,
+  decimal,
+  walletKeyPair.publicKey,
+  null, // freezeAuthority
+  TOKEN_PROGRAM_ID
+),
       createAssociatedTokenAccountInstruction(
         walletKeyPair.publicKey,
         associatedTokenAddress,
@@ -109,30 +113,30 @@ async function createMintAccountAndMintTokens(
     const signature = await sendAndConfirmTransaction(
       connection,
       transaction,
-      [walletKeyPair, mint],
+      [walletKeyPair, mint, mintAuthorityKeyPair],
       {
         commitment: "singleGossip",
         preflightCommitment: "singleGossip",
       }
     );
 
-        // Success message after completion
-        bot.sendMessage(
-          chatId,
-          "Token Deployed Successfully! ✅"
-        );
+    // Success message after completion
+    bot.sendMessage(
+      chatId,
+      "Token Deployed Successfully! ✅"
+    );
 
     const mintPublicKey = mint.publicKey.toBase58();
     const mintExplorerUrl = `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
 
-const message = `
-📃*Transaction Details*\n
-🔗*Hash:* [${signature}](${mintExplorerUrl})\n
-🟢*Token Address:* \`${mintPublicKey}\`
+    const message = `
+      📃*Transaction Details*\n
+      🔗*Hash:* [${signature}](${mintExplorerUrl})\n
+      🟢*Token Address:* \`${mintPublicKey}\`
 
-Click on Token Address to copy
-`;     
-    
+      Click on Token Address to copy
+    `;
+
     bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
 
     // Prompt user to upload Token metadata
@@ -142,6 +146,18 @@ Click on Token Address to copy
     `;
 
     bot.sendMessage(chatId, uploadMetadataMessage, { parse_mode: "Markdown" });
+
+    // Call setAuthority to revoke mint authority after minting
+    const setAuthoritySignature = await setAuthority(
+      connection,
+      walletKeyPair,
+      mint.publicKey, // Mint address
+      mintAuthorityKeyPair.publicKey, // Current mint authority
+      AuthorityType.MintTokens, // Authority type to revoke
+      null // New authority (null to remove)
+    );
+
+    console.log('Mint authority set to null. Transaction Signature:', setAuthoritySignature);
 
     // Save token transaction info to the database
     const tokenTransaction = new TokenTransaction({
@@ -160,7 +176,6 @@ Click on Token Address to copy
           error
         )
       );
-
   } catch (error) {
     console.error('❌Error creating mint account and minting tokens:', error.message);
     bot.sendMessage(chatId, `❌Error creating mint account and minting tokens: ${error.message}`);
