@@ -123,7 +123,7 @@ async function createMintAccountAndMintTokens(
         );
 
     const mintPublicKey = mint.publicKey.toBase58();
-    const mintExplorerUrl = `https://explorer.solana.com/TX/${signature}?cluster=devnet`;
+    const mintExplorerUrl = `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
 
 const message = `
 📃*Transaction Details*\n
