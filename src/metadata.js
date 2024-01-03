@@ -79,7 +79,7 @@ async function metadata(metadataInfo, chatId, bot) {
     // Display a progress message to the user
     const progressMessage = await bot.sendMessage(
       chatId,
-      "Processing. Please wait..."
+      "🔃Processing Metadata Upload, Please wait..."
     );
 
     const umi = createUmi("https://api.devnet.solana.com");
@@ -111,7 +111,7 @@ async function metadata(metadataInfo, chatId, bot) {
         ...accounts,
         ...data,
       }).sendAndConfirm(umi);
-
+      console.log(txid);
       /// Convert the signature byte array to a base58 string
       const signatureBuffer = Buffer.from(txid.signature);
       const signatureBase58 = bs58.encode(signatureBuffer);
@@ -122,10 +122,10 @@ async function metadata(metadataInfo, chatId, bot) {
       );
 
       // Send success message to the user
-      bot.sendMessage(
-        chatId,
-        `Metadata uploaded successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command. \n\n🔗View on Explorer: ${explorerLink}`
-      );
+      // bot.sendMessage(
+      //   chatId,
+      //   `Metadata uploaded successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command. \n\n🔗View on Explorer: ${explorerLink}`
+      // );
 
       // Delete the progress message
       bot.deleteMessage(chatId, progressMessage.message_id);
@@ -147,10 +147,10 @@ async function metadata(metadataInfo, chatId, bot) {
       }).sendAndConfirm(umi);
       console.log(txid);
       // Send success message to the user
-      bot.sendMessage(
-        chatId,
-        "Metadata updated successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command."
-      );
+      // bot.sendMessage(
+      //   chatId,
+      //   "Metadata updated successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command."
+      // );
 
       // Delete the progress message
       bot.deleteMessage(chatId, progressMessage.message_id);

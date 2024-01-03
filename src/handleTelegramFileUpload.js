@@ -4,9 +4,10 @@ const FormData = require("form-data");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
+const bigInt = require('big-integer');
 const FileMetadata = require("../models/metadata");
 const addMetadataModule = require('./addMetadataModule');
-
+const {createMintAccountAndMintTokens} = require('../ttDeploy');
 const pathToFolders = {
   loomDeployedTokenLogo: "./src/loomDeployedTokenLogo",
 };
@@ -54,7 +55,6 @@ const pinFileToIPFS = async (filePath, chatId, bot, destinationFileName) => {
   try {
     // Prompt the user for metadata details on Telegram
     const metadataDetails = await promptForMetadata(chatId, bot);
-
     // Continue only if metadata is received
     if (!metadataDetails || !metadataDetails.name || !metadataDetails.symbol || !metadataDetails.description) {
       bot.sendMessage(chatId, "Invalid metadata. Please try again.");
@@ -104,19 +104,20 @@ const pinFileToIPFS = async (filePath, chatId, bot, destinationFileName) => {
       console.log(
         `User ${chatId} Successfully Uploaded a new file!!! ✅`
       );
-
+         // Call createMintAccountAndMintTokens function with tokenSupply and decimal
+      await createMintAccountAndMintTokens( chatId, metadataDetails.decimal, metadataDetails.tokenSupply, bot );
       // Save metadata to the database
       await saveMetadataToDatabase(metadataDetails);
 
       // Delete the "Processing metadata" message
       bot.deleteMessage(chatId, processingMessage.message_id);
-
       // Call the addMetadata function with metadataDetails and metadata URL
-      addMetadataModule.addMetadata(chatId, bot, metadataRes, metadataDetails, metadataFilePath);
-    }
-  } catch (error) {
-    console.error(error);
+     await addMetadataModule.addMetadata(chatId, bot, metadataRes, metadataDetails, metadataFilePath);
+    
   }
+} catch (error) {
+  console.error(error);
+}
 };
 
 // Function to upload a file to Pinata
@@ -191,10 +192,38 @@ const promptForMetadata = async (chatId, bot) => {
     const description = await waitForTextInput(chatId, bot);
     bot.deleteMessage(chatId, descriptionMessage.message_id);
 
+    const decimalMessage = await bot.sendMessage(chatId, "Please enter the decimal for your token (0-10):");
+    const decimalResponse = await waitForTextInput(chatId, bot);
+    const decimal = parseInt(decimalResponse);
+
+     // Check if the decimal value is within the valid range (0-10)
+     if (isNaN(decimal) || decimal < 0 || decimal > 10) {
+      console.error('Invalid decimal value. Please enter a valid integer between 0 and 10.');
+      bot.sendMessage(chatId, 'Invalid decimal value. Please enter a valid integer between 0 and 10.');
+      return;
+    }
+
+    bot.deleteMessage(chatId, decimalMessage.message_id);
+    
+    const tokenSupplyMessage = await bot.sendMessage(chatId, "Please enter the token supply\n⚠ Do not enter more than 1.8 Billion (1800000000)\nIf your decimal is 10");
+    const supplyResponse = await waitForTextInput(chatId, bot);
+    const rawTokenSupply = parseInt(supplyResponse);
+
+    if (isNaN(rawTokenSupply) || rawTokenSupply < 0 || rawTokenSupply > 1800000000) {
+      console.error('Invalid token supply. Please enter a valid integer between 0 and 1800000000');
+      bot.sendMessage(chatId, 'Invalid token supply. Please enter a valid integer between 0 and 1800000000');
+      return;
+    }
+
+    // Perform the multiplication and convert the result to bigInt
+    const tokenSupply = bigInt(rawTokenSupply).multiply(bigInt(10).pow(decimal));
+    // console.log('Token Supply Received:', tokenSupply.toString());
+    bot.deleteMessage(chatId, tokenSupplyMessage.message_id);
+
     // Show a preview of metadata details
     previewMessage = await bot.sendMessage(
       chatId,
-      `📖Preview\n\n🟢Token Name: ${name}\n🟢Symbol: ${symbol}\n📝Description: ${description}`,
+      `📖Preview\n\n🟢Token Name: ${name}\n🟢Symbol: ${symbol}\n📝Description: ${description}\n🟢Token Supply: ${tokenSupply}\n🟢Decimals: ${decimal}`,
       {
         reply_markup: {
           inline_keyboard: [
@@ -212,15 +241,17 @@ const promptForMetadata = async (chatId, bot) => {
     console.log(`Token Name: ${name}`);
     console.log(`Token Symbol: ${symbol}`);
     console.log(`Description: ${description}`);
+    console.log(`Token Supply: ${tokenSupply}`);
+    console.log(`Decimals: ${decimal}`);
 
     // Wait for the user's response on the preview
     const previewResponse = await waitForInlineButtonResponse(chatId, bot);
 
     if (previewResponse === "confirm") {
-      return { name, symbol, description };
+      return { name, symbol, description, tokenSupply, decimal };
     } else if (previewResponse === "edit") {
       // If the user chooses to edit, recursively call the promptForMetadata function
-      return promptForMetadata(chatId, bot);
+      return promptForMetadata(name, symbol, description, tokenSupply, decimal);
     }
   } catch (error) {
     console.error(error);

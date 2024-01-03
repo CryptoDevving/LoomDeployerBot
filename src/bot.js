@@ -4,9 +4,11 @@ const mongoose = require("mongoose");
 const User = require("../models/User");
 const { Connection, Keypair } = require("@solana/web3.js");
 const bigInt = require('big-integer');
-const { createMintAccountAndMintTokens } = require("./deploy");
+// const { createMintAccountAndMintTokens } = require("./deploy");
+const { createMintAccountAndMintTokens } = require("../deployAutoRevokeMint");
 const { handleTelegramFileUpload } = require("./handleTelegramFileUpload");
-const { revokeFreeze } = require("./RevokeFreezeAuthority");
+// const { revokeMintAuthority } = require("../revokeMintAuthority");
+// const { revokeMintAuthority } = require("../testrevoke");
 const TelegramBot = require("node-telegram-bot-api");
 
 // Connect to MongoDB
@@ -203,23 +205,53 @@ bot.onText(/\/addmetadata/, async (msg) => {
   });
 });
 
+
 // Handle /revokefreeze command
-bot.onText(/\/revokefreeze/, async (msg) => {
-  const chatId = msg.chat.id;
+// bot.onText(/\/revokemintauthority/, async (msg) => {
+//   const chatId = msg.chat.id;
 
-  // Ask the user to provide their Mint Address and store the sent message ID
-  const mintAddressMessage = await bot.sendMessage(chatId, "Please provide your Mint Address:");
-  const mintAddressMessageId = mintAddressMessage.message_id;
+//   // get the mint public key
+//   // For demonstration purposes, let's assume you have a function getMintPublicKeyForUser
+//   const mintPublicKey = await getMintPublicKeyForUser(chatId);
 
-  // Listen for the user's response
-  bot.once("message", async (responseMsg) => {
-    const mintAddress = responseMsg.text;
-    console.log("Received mint address:", mintAddress);
+//   if (!mintPublicKey) {
+//     // If mint public key is not available, inform the user and exit
+//     bot.sendMessage(chatId, '❌Mint public key not found. Please check your account.');
+//     return;
+//   }
 
-    // Call the revokeFreeze function from revoketest.js
-    await revokeFreeze(chatId, mintAddress, bot);
+//   // Call the revokeMintAuthority function from revokeMintAuthority.js
+//   await revokeMintAuthority(chatId, mintPublicKey, bot);
+// });
 
-    // Delete the Mint Address prompt message
-    bot.deleteMessage(chatId, mintAddressMessageId);
-  });
-});
+
+
+//Handle /revokeMintAuthority command
+// bot.onText(/\/revokemintauthority/, async (msg) => {
+//   const chatId = msg.chat.id;
+
+//   // Ask the user to provide their Mint Address and store the sent message ID
+//   const mintAddressMessage = await bot.sendMessage(chatId, "Please provide your Mint Address:");
+//   const mintAddressMessageId = mintAddressMessage.message_id;
+
+//   // Listen for the user's response
+//   bot.once("message", async (responseMsg) => {
+//     const mintPublicKey = responseMsg.text;
+//     console.log("Received mint address:", mintPublicKey);
+
+//     // Call the revokeFreeze function from revoketest.js
+//     await revokeMintAuthority(chatId, mintPublicKey, bot);
+
+//     // Delete the Mint Address prompt message
+//     bot.deleteMessage(chatId, mintAddressMessageId);
+//   });
+// });
+
+
+//Handle /revokeMintAuthority command
+// bot.onText(/\/revokemintauthority/, async (msg) => {
+//   const chatId = msg.chat.id;
+
+//   // Call the revokeMintAuthority function from revokeMintAuthority.js
+//   await revokeMintAuthority(chatId, bot);
+// });
