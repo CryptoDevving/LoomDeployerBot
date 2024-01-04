@@ -1,22 +1,42 @@
 const { Connection, PublicKey, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
 const { setAuthority, AuthorityType } = require("@solana/spl-token");
-const User = require("./models/User");
+const User = require("../models/User");
 
 const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // bot's wallet public key
 
-async function revokeMintAuthority(chatId, mintPublicKey, bot) {
-    const user = await User.findOne({ chatId });
+async function revokeMintAuthority(chatId, bot) {
+    
+    // Ask the user to provide their Mint Address and store the sent message ID
+    const mintAddressMessage = await bot.sendMessage(chatId, "📖Provide your Token Address:");
+    const mintAddressMessageId = mintAddressMessage.message_id;
 
-    if (!user) {
-        console.log('❌User not found. Please register using /start.');
-        bot.sendMessage(chatId, '❌User not found. Please register using /start.');
-        return;
-    }
+    // Listen for the user's response
+    bot.once("message", async (responseMsg) => {
+        const mintPublicKey = responseMsg.text;
+        console.log("🟢Received token address:", mintPublicKey);
 
-    const privateKeyBytes = user.privateKey.split(",").map(Number);
-    const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
-    const connection = new Connection("https://api.devnet.solana.com");
+        // Get user details from the database
+        const user = await User.findOne({ chatId });
 
+        if (!user) {
+            console.log('❌User not found. Please register using /start.');
+            bot.sendMessage(chatId, '❌User not found. Please register using /start.');
+
+            // Delete the Mint Address prompt message
+            bot.deleteMessage(chatId, mintAddressMessageId);
+            return;
+        }
+
+        const privateKeyBytes = user.privateKey.split(",").map(Number);
+        const walletKeyPair = Keypair.fromSecretKey(Uint8Array.from(privateKeyBytes));
+        const connection = new Connection("https://api.devnet.solana.com");
+
+        // Call the main revokeMintAuthority function
+        await mainRevokeMintAuthority(chatId, mintPublicKey, connection, walletKeyPair, bot, mintAddressMessageId);
+    });
+}
+
+async function mainRevokeMintAuthority(chatId, mintPublicKey, connection, walletKeyPair, bot) {
     try {
         // Determine the fee amount and convert it to lamports (1 SOL = 1,000,000,000 lamports)
         const feeAmountSOL = 0.005;
@@ -29,6 +49,9 @@ async function revokeMintAuthority(chatId, mintPublicKey, bot) {
         if (userBalanceLamports < feeLamports) {
             console.error('❌Insufficient balance to pay the fee.');
             bot.sendMessage(chatId, '❌Insufficient balance to pay the fee 😞\nPlease top up your account and try again.');
+
+            // Delete the Mint Address prompt message
+            bot.deleteMessage(chatId, initialMessageId);
             return;
         }
 

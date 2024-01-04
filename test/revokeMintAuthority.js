@@ -1,10 +1,10 @@
 const { Connection, PublicKey, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
 const { setAuthority, AuthorityType } = require("@solana/spl-token");
-const User = require("./models/User");
+const User = require("../models/User");
 
-const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // Replace with your bot's wallet public key
+const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // bot's wallet public key
 
-async function revokeFreeze(chatId, mintAddress, bot) {
+async function revokeMintAuthority(chatId, mintPublicKey, bot) {
     const user = await User.findOne({ chatId });
 
     if (!user) {
@@ -28,12 +28,15 @@ async function revokeFreeze(chatId, mintAddress, bot) {
 
         if (userBalanceLamports < feeLamports) {
             console.error('❌Insufficient balance to pay the fee.');
-            bot.sendMessage(chatId, '❌Insufficient balance to pay the fee.');
+            bot.sendMessage(chatId, '❌Insufficient balance to pay the fee 😞\nPlease top up your account and try again.');
             return;
         }
 
         console.log(`🟢 User ${chatId} has sufficient balance to pay the fee of ${feeAmountSOL} ✅`);
-        bot.sendMessage(chatId, 'Please wait, revoking freeze authority...');
+
+        // Send the initial message and store the message ID
+        const initialMessage = await bot.sendMessage(chatId, 'Please wait, revoking mint authority...🔃');
+        const initialMessageId = initialMessage.message_id;
 
         // Transfer the fee to the bot's wallet
         // Create a new transaction to transfer the fee to the bot's wallet
@@ -52,32 +55,37 @@ async function revokeFreeze(chatId, mintAddress, bot) {
             [walletKeyPair]
         );
 
-        console.log('Fee transferred to bot successfully. Transaction signature:', signature);
+        console.log('🟢 Fee transferred to bot successfully 🤑 Transaction signature:', signature);
 
-        // Revoke the freeze authority
-        console.log('Revoking freeze authority...');
-        console.log('Mint Address:', mintAddress);
-        console.log('Wallet Public Key:', walletKeyPair.publicKey.toBase58());
+        // Revoke the Mint authority
+        console.log('Revoking Mint authority...');
+        console.log('Mint Address:', mintPublicKey);
+        console.log('Wallet Private Key:', walletKeyPair);
+        console.log('Wallet Public Key:', walletKeyPair.publicKey);
 
+        // Revoke the Mint authority
         const signatureRevoke = await setAuthority(
             connection,
             walletKeyPair, // Payer
-            mintAddress, // User-provided mint address
-            walletKeyPair.publicKey, // Use the wallet's public key as the freeze authority key
-            AuthorityType.FreezeAccount,
+            mintPublicKey, // mint public key of the token
+            walletKeyPair.publicKey, // Use the wallet's public key as the mint authority key
+            AuthorityType.MintTokens,
             null // New authority (null to remove)
         );
 
         // Include Solana Explorer link in the message
         const solanaExplorerUrl = 'https://explorer.solana.com/tx/';
         const explorerLink = `${solanaExplorerUrl}${signatureRevoke}?cluster=devnet`;
-        console.log(`User ${chatId} has successfully revoked freeze authority✅`);
+        console.log(`User ${chatId} has successfully revoked Mint authority✅`);
 
-        bot.sendMessage(chatId, `🥶 Freeze Authority Revoked Successfully✅\n\n🔗Explore on Solana Explorer: ${explorerLink}`);
+        // Delete the initial message
+        bot.deleteMessage(chatId, initialMessageId);
+
+        bot.sendMessage(chatId, `🥶 Mint Authority Revoked Successfully✅\n\n🔗Explore on Solana Explorer: ${explorerLink}`);
     } catch (error) {
-        console.error('❌Error revoking freeze authority:', error.message);
-        bot.sendMessage(chatId, `❌Error revoking freeze authority: ${error.message}`);
+        console.error('❌Error revoking mint authority:', error.message);
+        bot.sendMessage(chatId, `❌Error revoking mint authority: ${error.message}`);
     }
 }
 
-module.exports = { revokeFreeze };
+module.exports = { revokeMintAuthority };

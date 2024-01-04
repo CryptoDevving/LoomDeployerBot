@@ -16,7 +16,7 @@ const {
     createMintToInstruction,
   } = require("@solana/spl-token");
   
-  const TokenTransaction = require("./models/TokenTransaction");
+  const TokenTransaction = require("../models/TokenTransaction");
   const { revokeMintAuthority } = require("./revokemintFixed");
 
   const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // bot's wallet public key

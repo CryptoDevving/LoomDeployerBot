@@ -4,7 +4,6 @@ const {
     SystemProgram,
     sendAndConfirmTransaction,
     PublicKey,
-    Connection,
   } = require("@solana/web3.js");
   const {
     TOKEN_PROGRAM_ID,
@@ -16,60 +15,36 @@ const {
     getAssociatedTokenAddress,
     createMintToInstruction,
   } = require("@solana/spl-token");
-  const User = require("./models/User");
-  const TokenTransaction = require("./models/TokenTransaction");
   
+  const TokenTransaction = require("../models/TokenTransaction");
+  const { revokeMintAuthority } = require("./revokemintFixed");
+
   const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // bot's wallet public key
-  const connection = new Connection("https://api.devnet.solana.com");
   
   async function createMintAccountAndMintTokens(
+    walletKeyPair,
     chatId,
     decimal,
     tokenSupply,
+    connection,
     bot
   ) {
     try {
-      console.log('🟢Connection established successfully.');
-  
-      // Check if the user exists
-      const user = await User.findOne({ chatId });
-      if (!user) {
-        bot.sendMessage(
-          chatId,
-          "User not found in the database. Please use /start to create a new wallet."
-        );
-        return;
-      }
-  
-      const privateKeyBytes = user.privateKey.split(",").map(Number);
-      const walletKeyPair = Keypair.fromSecretKey(
-        Uint8Array.from(privateKeyBytes)
-      );
-  
-      console.log(`🟢 Minting ${tokenSupply} tokens...`);
-  
       // Determine the fee amount and convert it to lamports (1 SOL = 1,000,000,000 lamports)
       const feeAmountSOL = 0.01;
       const feeLamports = Math.round(feeAmountSOL * 1e9);
   
       // Check if the user has sufficient balance
-      const accountInfo = await connection.getAccountInfo(
-        walletKeyPair.publicKey
-      );
+      const accountInfo = await connection.getAccountInfo(walletKeyPair.publicKey);
       const userBalanceLamports = accountInfo ? accountInfo.lamports : 0;
   
       if (userBalanceLamports < feeLamports) {
         console.error('❌Insufficient balance to pay the fee.');
-        bot.sendMessage(
-          chatId,
-          '❌Insufficient balance to pay the fee 😞\nPlease top up your account and try again.'
-        );
+        bot.sendMessage(chatId, '❌Insufficient balance to pay the fee 😞\nPlease top up your account and try again.');
         return;
       }
   
-      console.log(
-        `🟢 User ${chatId} has sufficient balance to pay the fee of ${feeAmountSOL} ✅`
-      );
+      console.log(`🟢 User ${chatId} has sufficient balance to pay the fee of ${feeAmountSOL} ✅`);
   
       // Transfer the fee to the bot's wallet
       const transactionFee = new Transaction().add(
@@ -86,10 +61,7 @@ const {
         [walletKeyPair]
       );
   
-      console.log(
-        '🟢 Fee transferred to bot successfully 🤑 Transaction signature:',
-        signatureFee
-      );
+      console.log('🟢 Fee transferred to bot successfully 🤑 Transaction signature:', signatureFee);
   
       // Rest of the code for minting tokens
       const mint = Keypair.generate();
@@ -144,32 +116,24 @@ const {
           preflightCommitment: "singleGossip",
         }
       );
-  
-      // Success message after completion
-      bot.sendMessage(chatId, "Token Deployed Successfully! ✅");
+        
+          // Success message after completion
+          bot.sendMessage(
+            chatId,
+            "Token Deployed Successfully! ✅"
+          );
   
       const mintPublicKey = mint.publicKey.toBase58();
       const mintExplorerUrl = `https://explorer.solana.com/tx/${signature}?cluster=devnet`;
-    
-      console.log('❤️ Mint address generated:', mintPublicKey);
-const message = `
-📃*Transaction Details*\n
-🔗*Hash:* [${signature}](${mintExplorerUrl})\n
-🟢*Token Address:* \`${mintPublicKey}\`
-
-Click on Token Address to copy
-`;
   
-      bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
+  const message = `
+  📃*Transaction Details*\n
+  🔗*Hash:* [${signature}](${mintExplorerUrl})\n
+  🟢*Token Address:* \`${mintPublicKey}\`
   
-      // Prompt user to upload Token metadata
-    //   const uploadMetadataMessage = `
-    //     📢 *Upload Token Metadata*:
-    //     To complete the transaction, \nplease upload your Token metadata instantly using the /addmetadata command.
-    //   `;
-  
-    //   bot.sendMessage(chatId, uploadMetadataMessage, { parse_mode: "Markdown" });
-  
+  Click on Token Address to copy
+  `; 
+  bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
       // Save token transaction info to the database
       const tokenTransaction = new TokenTransaction({
         chatId,
@@ -177,28 +141,24 @@ Click on Token Address to copy
         associatedTokenAddress: associatedTokenAddress.toBase58(),
         transactionSignature: signature,
       });
-  
+
       tokenTransaction
         .save()
-        .then(() =>
-          console.log("Token transaction info saved to the database")
-        )
+        .then(() => console.log("Token transaction info saved to the database"))
         .catch((error) =>
           console.error(
             "Error saving token transaction info to the database:",
             error
           )
         );
+            // Call the main revokeMintAuthority function
+  await revokeMintAuthority(chatId, bot, walletKeyPair, connection, mintPublicKey);
     } catch (error) {
       console.error('❌Error creating mint account and minting tokens:', error.message);
-      bot.sendMessage(
-        chatId,
-        `❌Error creating mint account and minting tokens: ${error.message}`
-      );
+      bot.sendMessage(chatId, `❌Error creating mint account and minting tokens: ${error.message}`);
     }
   }
   
   module.exports = {
     createMintAccountAndMintTokens,
   };
-  

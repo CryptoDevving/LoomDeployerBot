@@ -7,6 +7,10 @@ const userSchema = new mongoose.Schema({
     type: Number, 
     required: true,
   },
+  username: {
+    type: String,
+    required: true,
+  },
   privateKey: {
     type: String,
     required: true,

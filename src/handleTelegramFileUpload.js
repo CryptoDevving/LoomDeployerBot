@@ -7,7 +7,7 @@ require("dotenv").config();
 const bigInt = require('big-integer');
 const FileMetadata = require("../models/metadata");
 const addMetadataModule = require('./addMetadataModule');
-const {createMintAccountAndMintTokens} = require('../ttDeploy');
+const {createMintAccountAndMintTokens} = require('./ttDeploy');
 const pathToFolders = {
   loomDeployedTokenLogo: "./src/loomDeployedTokenLogo",
 };
@@ -18,7 +18,7 @@ const handleTelegramFileUpload = async (chatId, bot) => {
     // Prompt the user to upload a document
     const uploadMessage = await bot.sendMessage(
       chatId,
-      "Please upload your image file (Do not Compress)\n\nSupported formats: jpg, jpeg, png\nDo not upload the file as a picture"
+      "📸Upload your image file (Do not Compress)\n\nSupported formats: jpg, jpeg, png\nDo not upload the file as a picture"
     );
 
     // Wait for the user to upload the file
@@ -55,12 +55,15 @@ const pinFileToIPFS = async (filePath, chatId, bot, destinationFileName) => {
   try {
     // Prompt the user for metadata details on Telegram
     const metadataDetails = await promptForMetadata(chatId, bot);
+    // Send a progress message
+    const progressMessage = await bot.sendMessage(chatId, "Deploying Token... 🔃");
     // Continue only if metadata is received
     if (!metadataDetails || !metadataDetails.name || !metadataDetails.symbol || !metadataDetails.description) {
       bot.sendMessage(chatId, "Invalid metadata. Please try again.");
       return;
     }
-
+    // Delete the "Processing metadata" message
+    bot.deleteMessage(chatId, progressMessage.message_id);
     // Notify the user that metadata is processing
     const processingMessage = await bot.sendMessage(chatId, "Processing metadata. Please wait...");
 
@@ -177,7 +180,7 @@ const saveMetadataToDatabase = async (metadataDetails) => {
 // Function to prompt user for metadata details using Telegram bot
 const promptForMetadata = async (chatId, bot) => {
   let previewMessage;
-
+  
   try {
     // Ask the user for metadata details
     const nameMessage = await bot.sendMessage(chatId, "Enter Token Name:");
@@ -267,21 +270,22 @@ const promptForMetadata = async (chatId, bot) => {
 // Function to wait for user response to text input
 async function waitForTextInput(chatId, bot) {
   return new Promise((resolve) => {
-    bot.once("message", (msg) => {
+    bot.on("message", function handleMessage(msg) {
       if (msg.chat.id.toString() === chatId.toString()) {
         resolve(msg.text);
+        bot.removeListener("message", handleMessage); // Remove the listener after resolving
       }
     });
   });
 }
 
-
 // Function to wait for user response to inline buttons
 async function waitForInlineButtonResponse(chatId, bot) {
   return new Promise((resolve) => {
-    bot.once("callback_query", (query) => {
+    bot.on("callback_query", function handleCallbackQuery(query) {
       if (query.message.chat.id.toString() === chatId.toString()) {
         resolve(query.data);
+        bot.removeListener("callback_query", handleCallbackQuery); // Remove the listener after resolving
       }
     });
   });

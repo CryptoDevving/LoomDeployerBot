@@ -1,6 +1,6 @@
 const { Connection, PublicKey, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
 const { setAuthority, AuthorityType } = require("@solana/spl-token");
-const User = require("./models/User");
+const User = require("../models/User");
 
 const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // bot's wallet public key
 

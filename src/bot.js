@@ -3,13 +3,14 @@ config();
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const { Connection, Keypair } = require("@solana/web3.js");
-const bigInt = require('big-integer');
-// const { createMintAccountAndMintTokens } = require("./deploy");
-const { createMintAccountAndMintTokens } = require("../deployAutoRevokeMint");
 const { handleTelegramFileUpload } = require("./handleTelegramFileUpload");
-// const { revokeMintAuthority } = require("../revokeMintAuthority");
-// const { revokeMintAuthority } = require("../testrevoke");
 const TelegramBot = require("node-telegram-bot-api");
+// const bigInt = require('big-integer');
+// const { createMintAccountAndMintTokens } = require("./deploy");
+// const { createMintAccountAndMintTokens } = require("../deployAutoRevokeMint");
+// const { revokeMintAuthority } = require("../revokeMintAuthority");
+const { revokeMintAuthority } = require("./testrevoke");
+
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_CONNECTION);
@@ -26,12 +27,12 @@ console.log("Bot started and running... 🤖");
 
 // Initialize Solana connection
 const connection = new Connection("https://api.devnet.solana.com");
-console.log("Solana connection initialized... 😍");
+console.log("Solana connection initialized... 😍" );
 
 // Handle /start command
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-
+  const username = msg.from.username;
   // Check if the user's wallet already exists in the database
   const existingUser = await User.findOne({ chatId });
 
@@ -57,10 +58,11 @@ bot.onText(/\/start/, async (msg) => {
     // Save user wallet info to the database
     const user = new User({
       chatId,
+      username,
       privateKey,
       publicKey,
     });
-
+    
     user
       .save()
       .then(() => console.log("User wallet info saved to the database"))
@@ -70,99 +72,87 @@ bot.onText(/\/start/, async (msg) => {
   }
 });
 
+
+// Define a global variable to track deployment status
+let isDeploymentInProgress = false;
+let deployMessage;
+
 // Handle /deploy command
 bot.onText(/\/deploy/, async (msg) => {
   const chatId = msg.chat.id;
 
-  const decimalMessage = await bot.sendMessage(
-    chatId,
-    "Please enter the decimal for your token (0-10):"
-  );
-  bot.once("text", async (msgDecimal) => {
-    const decimal = parseInt(msgDecimal.text);
+  // Check if deployment is already in progress
+  if (isDeploymentInProgress) {
+    deployMessage = await bot.sendMessage(chatId, "Deployment has been clicked already\nClick continue above to proceed with token deployment...");
+    return;
+  }
 
-    // Check if the decimal value is within the valid range (0-10)
-    if (isNaN(decimal) || decimal < 0 || decimal > 10) {
-      console.error('Invalid decimal value. Please enter a valid integer between 0 and 10.');
-      bot.sendMessage(chatId, 'Invalid decimal value. Please enter a valid integer between 0 and 10.');
-      return;
-    }
+  // Set the deployment flag to true
+  isDeploymentInProgress = true;
 
-    // Delete the previous message
-    bot.deleteMessage(chatId, decimalMessage.message_id);
-    const supplyMessage = await bot.sendMessage(
+  // Delete the "Continue" button message
+  if (deployMessage) {
+    bot.deleteMessage(chatId, deployMessage.message_id);
+  }
+
+  // Check if the user's wallet exists in the database
+  const user = await User.findOne({ chatId });
+
+  if (!user) {
+    bot.sendMessage(
       chatId,
-      "Please enter the token supply\n⚠ Do not enter more than 1.8 Billion (1800000000)\nIf your decimal is 10"
+      "User not found in the database. Use /start to create a new wallet."
     );
-    bot.once("text", async (msgSupply) => {
-      const rawTokenSupply = parseInt(msgSupply.text);
 
-      if (isNaN(rawTokenSupply) || rawTokenSupply < 0 || rawTokenSupply > 18000000000000000000n) {
-        console.error('Invalid token supply. Please enter a valid integer between 0 and 1800000000');
-        bot.sendMessage(chatId, 'Invalid token supply. Please enter a valid integer between 0 and 1800000000');
-        return;
+    // Reset the deployment flag to false
+    isDeploymentInProgress = false;
+    return;
+  }
+
+  try {
+    // Send a message with the "Continue" button
+    const continueMessage = await bot.sendMessage(
+      chatId,
+      "⏭Click Continue to Proceed with Token Deployment...",
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "Continue", callback_data: "continue" }],
+          ],
+        },
       }
+    );
 
-      // Perform the multiplication and convert the result to bigInt
-      const tokenSupply = bigInt(rawTokenSupply).multiply(bigInt(10).pow(decimal));
-      console.log('Token Supply:', tokenSupply.toString());
+    // Handle inline button callback only once
+    bot.once("callback_query", async (query) => {
+      const data = query.data;
 
-      bot.deleteMessage(chatId, supplyMessage.message_id);
-
-      const progressMessage = await bot.sendMessage(
-        chatId,
-        "Deploying Please wait..."
-      );
-
-      const user = await User.findOne({ chatId });
-
-      if (user) {
-        const privateKeyBytes = user.privateKey.split(",").map(Number);
-        const walletKeyPair = Keypair.fromSecretKey(
-          Uint8Array.from(privateKeyBytes)
-        );
-
+      if (data === "continue") {
         try {
-          // Pass connection and bot instances to the deploy function
-          await createMintAccountAndMintTokens(
-            walletKeyPair,
-            chatId,
-            decimal,
-            tokenSupply,
-            connection,
-            bot
-          );
+          // Delete the "Continue" button message
+          bot.deleteMessage(chatId, continueMessage.message_id);
 
-          // Delete the progress message
-          bot.deleteMessage(chatId, progressMessage.message_id);
+          await handleTelegramFileUpload(chatId, bot);
         } catch (error) {
-          console.error(
-            "Error creating mint and token account and minting tokens:",
-            error
-          );
-          bot.sendMessage(
-            chatId,
-            "Error creating mint and token account and minting tokens"
-          );
-
-          // Delete the progress message
-          bot.deleteMessage(chatId, progressMessage.message_id);
+          console.error("Error adding metadata:", error);
+          bot.sendMessage(chatId, "Error adding metadata");
+        } finally {
+          // Reset the deployment flag to false
+          isDeploymentInProgress = false;
         }
-      } else {
-        bot.sendMessage(
-          chatId,
-          "User not found in the database. Please use /start to create a new wallet."
-        );
-
-        // Delete the progress message
-        bot.deleteMessage(chatId, progressMessage.message_id);
       }
     });
-  });
+  } catch (error) {
+    console.error("Error handling /deploy command:", error);
+
+    // Reset the deployment flag to false in case of an error
+    isDeploymentInProgress = false;
+  }
 });
 
-// Handle /addMetadata command
-bot.onText(/\/addmetadata/, async (msg) => {
+
+// Handle /revokemint command
+bot.onText(/\/revokemint/, async (msg) => {
   const chatId = msg.chat.id;
 
   // Check if the user's wallet exists in the database
@@ -171,87 +161,15 @@ bot.onText(/\/addmetadata/, async (msg) => {
   if (!user) {
     bot.sendMessage(
       chatId,
-      "User not found in the database. Please use /start to create a new wallet."
+      "User not found in the database. Use /start to create a new wallet."
     );
     return;
   }
 
-  // Send a message with the "Continue" button
-  const continueMessage = await bot.sendMessage(
-    chatId,
-    "Click Continue to start submitting your metadata details:",
-    {
-      reply_markup: {
-        inline_keyboard: [[{ text: "Continue", callback_data: "continue" }]],
-      },
-    }
-  );
-
-  // Handle inline button callback
-  bot.on("callback_query", async (query) => {
-    const data = query.data;
-
-    if (data === "continue") {
-      try {
-        // Delete the "Continue" button message
-        bot.deleteMessage(chatId, continueMessage.message_id);
-
-        await handleTelegramFileUpload(chatId, bot);
-      } catch (error) {
-        console.error("Error adding metadata:", error);
-        bot.sendMessage(chatId, "Error adding metadata");
-      }
-    }
-  });
+  try {
+    // Call the revokeMintAuthority function
+    await revokeMintAuthority(chatId, bot);
+  } catch (error) {
+    console.error("Error handling /revokemint command:", error);
+  }
 });
-
-
-// Handle /revokefreeze command
-// bot.onText(/\/revokemintauthority/, async (msg) => {
-//   const chatId = msg.chat.id;
-
-//   // get the mint public key
-//   // For demonstration purposes, let's assume you have a function getMintPublicKeyForUser
-//   const mintPublicKey = await getMintPublicKeyForUser(chatId);
-
-//   if (!mintPublicKey) {
-//     // If mint public key is not available, inform the user and exit
-//     bot.sendMessage(chatId, '❌Mint public key not found. Please check your account.');
-//     return;
-//   }
-
-//   // Call the revokeMintAuthority function from revokeMintAuthority.js
-//   await revokeMintAuthority(chatId, mintPublicKey, bot);
-// });
-
-
-
-//Handle /revokeMintAuthority command
-// bot.onText(/\/revokemintauthority/, async (msg) => {
-//   const chatId = msg.chat.id;
-
-//   // Ask the user to provide their Mint Address and store the sent message ID
-//   const mintAddressMessage = await bot.sendMessage(chatId, "Please provide your Mint Address:");
-//   const mintAddressMessageId = mintAddressMessage.message_id;
-
-//   // Listen for the user's response
-//   bot.once("message", async (responseMsg) => {
-//     const mintPublicKey = responseMsg.text;
-//     console.log("Received mint address:", mintPublicKey);
-
-//     // Call the revokeFreeze function from revoketest.js
-//     await revokeMintAuthority(chatId, mintPublicKey, bot);
-
-//     // Delete the Mint Address prompt message
-//     bot.deleteMessage(chatId, mintAddressMessageId);
-//   });
-// });
-
-
-//Handle /revokeMintAuthority command
-// bot.onText(/\/revokemintauthority/, async (msg) => {
-//   const chatId = msg.chat.id;
-
-//   // Call the revokeMintAuthority function from revokeMintAuthority.js
-//   await revokeMintAuthority(chatId, bot);
-// });

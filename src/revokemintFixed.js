@@ -1,19 +1,19 @@
 const { Connection, PublicKey, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } = require('@solana/web3.js');
 const { setAuthority, AuthorityType } = require("@solana/spl-token");
-const User = require("./models/User");
+const User = require("../models/User");
 
 const BOT_WALLET_PUBLIC_KEY = 'FG1jEJRXoFBNX7Ta2hT6obJ8RVqnVJBy2LCf2mMEcBs1'; // bot's wallet public key
 
 async function revokeMintAuthority(chatId, bot) {
     
     // Ask the user to provide their Mint Address and store the sent message ID
-    const mintAddressMessage = await bot.sendMessage(chatId, "Please provide your Mint Address:");
+    const mintAddressMessage = await bot.sendMessage(chatId, "📖Provide your Token Address:");
     const mintAddressMessageId = mintAddressMessage.message_id;
 
     // Listen for the user's response
     bot.once("message", async (responseMsg) => {
         const mintPublicKey = responseMsg.text;
-        console.log("Received mint address:", mintPublicKey);
+        console.log("🟢Received token address:", mintPublicKey);
 
         // Get user details from the database
         const user = await User.findOne({ chatId });

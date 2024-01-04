@@ -20,6 +20,7 @@ const {
 } = require("@metaplex-foundation/umi-web3js-adapters");
 const bs58 = require('bs58');
 const User = require("../models/User");
+const { revokeMintAuthority } = require("./revokemintFixed");
 
 function loadWalletKey(privateKeyBytes) {
   return web3.Keypair.fromSecretKey(new Uint8Array(privateKeyBytes));
@@ -44,13 +45,24 @@ async function promptForMintAddress(chatId, bot) {
     // Send the prompt message
     const mintAddressMessage = await bot.sendMessage(
       chatId,
-      "Enter the Mint Address:"
+      "📖Enter Your Token Address to upload Token metadata"
     );
+    
     // Wait for the user to enter the Mint Address
     const mintAddress = await waitForUserResponse(chatId, bot);
-    // Delete the prompt message
-    bot.deleteMessage(chatId, mintAddressMessage.message_id);
 
+    try {
+      // Delete the prompt message
+      await bot.deleteMessage(chatId, mintAddressMessage.message_id);
+    } catch (deleteError) {
+      // Log the delete error
+      console.error("Error deleting message:", deleteError.message);
+    }
+
+    console.log(`Mint Address entered: ${mintAddress.trim()}`);
+
+    // Introduce a 4-second delay before returning the mintAddress
+    await new Promise(resolve => setTimeout(resolve, 9000));
     return mintAddress.trim();
   } catch (error) {
     console.error(error);
@@ -113,22 +125,27 @@ async function metadata(metadataInfo, chatId, bot) {
       }).sendAndConfirm(umi);
       console.log(txid);
       /// Convert the signature byte array to a base58 string
-      const signatureBuffer = Buffer.from(txid.signature);
-      const signatureBase58 = bs58.encode(signatureBuffer);
-      const explorerLink = `${solanaExplorerUrl}${signatureBase58}?cluster=devnet`;
+      // const signatureBuffer = Buffer.from(txid.signature);
+      // const signatureBase58 = bs58.encode(signatureBuffer);
+      // const explorerLink = `${solanaExplorerUrl}${signatureBase58}?cluster=devnet`;
 
       console.log(
-        `User ${chatId} has successfully added metadata to their Token ${mint}\n🔗View on Explorer: ${explorerLink}`
+        `User ${chatId} has successfully added metadata to their Token ${mint}`
       );
 
       // Send success message to the user
-      // bot.sendMessage(
-      //   chatId,
-      //   `Metadata uploaded successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command. \n\n🔗View on Explorer: ${explorerLink}`
-      // );
+      const revokeMessage = await bot.sendMessage(
+        chatId,
+        `Metadata uploaded successfully! ✅\n\nNow Revoking Mint Authority...🔃`
+      );
 
       // Delete the progress message
       bot.deleteMessage(chatId, progressMessage.message_id);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Call the main revokeMintAuthority function
+    await revokeMintAuthority(chatId, bot);
+    // Delete the progress message
+    bot.deleteMessage(chatId, revokeMessage.message_id);
     } else {
       const data = {
         data: some(onChainData),
@@ -146,14 +163,6 @@ async function metadata(metadataInfo, chatId, bot) {
         ...data,
       }).sendAndConfirm(umi);
       console.log(txid);
-      // Send success message to the user
-      // bot.sendMessage(
-      //   chatId,
-      //   "Metadata updated successfully! ✅\n\nYou can now revoke authority before adding liquidity using the /revokefreeze command."
-      // );
-
-      // Delete the progress message
-      bot.deleteMessage(chatId, progressMessage.message_id);
     }
   } catch (error) {
     console.error(error);
